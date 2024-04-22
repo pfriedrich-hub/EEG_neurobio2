@@ -37,6 +37,10 @@ raw = ...
 
 # Plot the signals of the first five blinks
 
-# Repeat the same but for horizontal eye movement, instead of blinking
+# Take the average of the "blinks" and plot it. How is it different from the individual blink plots?
 
-# Repeat the same for closed eyes (watch out for which channels you would pick)
+# Extra: Repeat the same but for horizontal eye movement, instead of blinking
+
+# Extra 2: Repeat the same for closed eyes (watch out for which channels you would pick)
+
+# Repeat the "Noise generation" task from Worksheet 1 using python
