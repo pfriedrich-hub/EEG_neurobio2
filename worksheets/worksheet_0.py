@@ -64,7 +64,7 @@ noisy_wave = wave + noise
 plt.plot(time, noisy_wave)
 
 # add some sine waves together
-frequencies = [2, 4]  # different frequencies
+frequencies = [2, 4]  # list of different frequencies
 sine_waves = []
 for freq in frequencies:
     x = amplitude * numpy.sin(2 * numpy.pi * freq * time + phi)
@@ -74,7 +74,6 @@ sum = numpy.sum(sine_waves, axis=0)
 # plot spectrum here?
 
 # create a difference wave
-
 
 # --- exercise: load raw eeg data
 import mne
