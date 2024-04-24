@@ -3,16 +3,16 @@ import mne
 from pathlib import Path
 from matplotlib import pyplot as plt
 
-header_file = Path.cwd() / 'resources' / 'EEG_data' / 'P1_Ears Free_0.vhdr'
-raw = mne.io.read_raw_brainvision(header_file, preload=True)
+header_file_path = Path.cwd() / 'resources' / 'EEG_data' / 'blinks.vhdr'
+raw = mne.io.read_raw_brainvision(header_file_path, preload=True)
 
-data = raw.pick_channels(['9'])._data[0][50000:51000]   # single channel eeg data
+data = raw.copy().pick_channels(['9'])._data[0][:500]  # single channel eeg data
 n_samples = len(data)  # length of sequence
-time = numpy.arange(0, n_samples) / n_samples  # time points in the data
+times = numpy.arange(0, n_samples) / n_samples  # time points in the data
 
 # take a look at the EEG (time series) data:
 fig, ax = plt.subplots(1, 1)
-ax.plot(time, data)
+ax.plot(times, data)
 ax.set_ylabel('Amplitude (mV)')
 ax.set_xlabel('Time (s)')
 ax.set_title('Raw signal')
@@ -20,8 +20,8 @@ ax.set_title('Raw signal')
 
 # ---- Step I: Fourier transformation ---- #
 
-samplerate = 500        # sampling rate in Hz
-nyquist = samplerate / 2    # Nyquist frequency -- the highest frequency you can measure in the data
+samplefrequency = raw.info["sfreq"]         # sampling rate in Hz
+nyquist = samplefrequency / 2    # Nyquist frequency -- the highest frequency you can measure in the data
 # initialize Fourier output array
 fourier = numpy.zeros(n_samples, dtype=complex)
 # These are the actual frequencies in Hz that will be returned by the
@@ -30,8 +30,8 @@ fourier = numpy.zeros(n_samples, dtype=complex)
 frequencies = numpy.linspace(0, nyquist, int(n_samples/2)+1)
 # Fourier transform is dot-product between sine wave and data at each frequency
 for frequency in range(n_samples):
-    sine_wave = numpy.exp(-1j * (2 * numpy.pi * frequency * time))  # complex sine wave
-    fourier[frequency] = numpy.sum(sine_wave * data)  # dot product
+    sine_wave = numpy.exp(-1j * (2 * numpy.pi * frequency * times))  # complex sine wave
+    fourier[frequency] = numpy.sum(sine_wave * data)  # dot productd
 fourier = fourier / n_samples  # rescale by signal length
 
 # to obtain the spectrum, disregard the complex part and convert to log power:
@@ -48,8 +48,8 @@ ax.set_xlabel('Frequency (Hz)')
 frequency = 3  # frequency of the sine wave in Hz
 fig = plt.figure()
 ax = plt.axes(projection='3d')
-sine_wave = numpy.exp(-1j * (2 * numpy.pi * frequency * time))  # complex sine wave
-ax.plot(time, sine_wave.real, sine_wave.imag)
+sine_wave = numpy.exp(-1j * (2 * numpy.pi * frequency * times))  # complex sine wave
+ax.plot(times, sine_wave.real, sine_wave.imag)
 ax.set_title('%i Hz sine wave' % frequency)
 
 
@@ -57,7 +57,7 @@ ax.set_title('%i Hz sine wave' % frequency)
 # ---- Step II Construct a band pass filter ----- #
 
 # get variables (these are the same variables as above)
-nyquist = samplerate / 2  # Nyquist frequency -- the highest frequency you can measure in the data
+nyquist = samplefrequency / 2  # Nyquist frequency -- the highest frequency you can measure in the data
 frequencies = numpy.linspace(0, nyquist, int(n_samples / 2) + 1)
 
 # create an array of zeros with the same length as the frequency array
@@ -65,8 +65,8 @@ frequencies = numpy.linspace(0, nyquist, int(n_samples / 2) + 1)
 filter = numpy.zeros(n_samples)  # side note: this filter would just zero out all frequency components!
 
 # select frequencies in the pass-band (the frequency components we want to keep)
-low_frequency = 1
-high_frequency = 40
+low_frequency = ...
+high_frequency = ...
 passband_indices = numpy.where(numpy.logical_and(frequencies > low_frequency, frequencies < high_frequency))
 
 # Create the filter kernel in the frequency domain: set value at the frequencies that we want to keep to 1, all others remain zero
@@ -96,14 +96,16 @@ ax.set_xlabel('Frequency (Hz)')
 reconstructed_data = numpy.zeros(len(data))
 for frequency in range(n_samples):
     #  scale sine waves by fourier coefficients
-    sine_wave = filtered_fourier[frequency] * numpy.exp(1j * 2 * numpy.pi * (frequency) * time)
+    sine_wave = filtered_fourier[frequency] * numpy.exp(1j * 2 * numpy.pi * (frequency) * times)
     # sine_wave = numpy.exp(-1j * (2 * numpy.pi * frequency * time))  # complex sine wave
     # sum sine waves together (take only real part)
     reconstructed_data = reconstructed_data + numpy.real(sine_wave)
 
 # plot filtered time series
 fig, ax = plt.subplots(1, 1)
-ax.plot(time, reconstructed_data)
+ax.plot(times, reconstructed_data)
 ax.set_ylabel('Amplitude (mV)')
 ax.set_xlabel('Time (s)')
 ax.set_title('Filtered signal')
+
+raw_filtered = raw.copy().filter(lp=..., hp=...)
