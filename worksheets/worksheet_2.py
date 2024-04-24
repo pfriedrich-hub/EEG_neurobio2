@@ -19,16 +19,11 @@ raw = ...
 
 # Rename the channels on the copy of the raw object (use the electrode map image)
 
-# Which channel is the reference channel?
-
 # Plot the raw file
 
 # Select bad channels
 
 # Print the names of the selected bad channels
-
-# Drop the bad channels from the raw object
-# or try to repair them and plot the difference
 
 # Pick all the channels that you would associate with blinking
 # or pick all "frontal" channels using a regular expression (regexp)
@@ -39,8 +34,6 @@ raw = ...
 
 # Take the average of the "blinks" and plot it. How is it different from the individual blink plots?
 
-# Extra: Repeat the same but for horizontal eye movement, instead of blinking
-
-# Extra 2: Repeat the same for closed eyes (watch out for which channels you would pick)
+# Extra: Repeat the above steps with the eye movement EEG data
 
 # Repeat the "Noise generation" task from Worksheet 1 using python
