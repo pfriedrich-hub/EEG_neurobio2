@@ -3,11 +3,96 @@ import mne
 from pathlib import Path
 from matplotlib import pyplot as plt
 
+def fourier_transform(data, samplerate, show=True, xlim=None, axis=None, return_fourier=False):
+    nyquist = samplerate / 2
+    n_samples = len(data)
+    time = numpy.arange(0, n_samples) / n_samples
+    fourier = numpy.zeros(n_samples, dtype=complex)
+    frequencies = numpy.linspace(0, nyquist, int(n_samples / 2) + 1)
+    for frequency in range(n_samples):
+        sine_wave = numpy.exp(-1j * (2 * numpy.pi * frequency * time))
+        fourier[frequency] = numpy.sum(sine_wave * data)
+    fourier = fourier / n_samples
+    spectrum = numpy.abs(fourier)[:int(n_samples / 2) + 1] ** 2
+    if show:
+        if not axis:
+            fig, axis = plt.subplots(1, 1)
+            axis.plot(frequencies, spectrum)
+            axis.set_ylabel('Power (dB)')
+            axis.set_xlabel('Frequency (Hz)')
+        if xlim:
+            axis.set_xlim(xlim[0], xlim[1])
+    if return_fourier: return fourier, axis
+    else: return axis
+
+
+# --- Exercise 1: Making waves --- #
+
+samplerate = 500  # what is a samplerate?
+
+# duration of the signal (in seconds)
+duration = ... # todo
+signal_length = duration * samplerate
+
+# create a time axis (array of time points)
+time = numpy.linspace(start=0, stop=duration, num=signal_length)  # start, stop, number of steps
+
+# --- make a sine wave:
+
+# parameters of the sine wave:
+amplitude = ...  # todo
+frequency = ...  # todo
+phi = numpy.sin(...)  # phase angle (0°-360°)  # todo
+wave = amplitude * numpy.sin(2 * numpy.pi * frequency * time + phi)
+
+# plot:
+# - the sine wave
+plt.figure()
+plt.plot(time, wave)
+plt.xlabel('Time (s)')
+# - the spectrum of the sine wave
+fourier_transform(data=wave, samplerate=500, show=True)
+
+
+# --- add some sine waves together
+frequencies = [...]  # list of different frequencies # todo
+sine_waves = []
+for freq in frequencies:
+    x = amplitude * numpy.sin(2 * numpy.pi * freq * time + phi)
+    sine_waves.append(x)
+resulting_wave = numpy.sum(sine_waves, axis=0)
+
+# plot
+# - the resulting wave
+plt.figure()
+plt.plot(time, resulting_wave)
+plt.xlabel('Time (s)')
+# - its spectrum
+fourier_transform(data=resulting_wave, samplerate=500, xlim=(0,10))
+
+
+# --- generate a noisy signal (array of random values)
+noise = numpy.random.uniform(-.5, .5, [signal_length])
+
+# add our noise to the wave:
+noisy_wave = resulting_wave + noise
+# plot
+plt.figure()
+plt.plot(time, noisy_wave)
+plt.xlabel('Time (s)')
+fourier_transform(data=noisy_wave, samplerate=500, show=True, xlim=(0,100))
+
+
+
+
+# --- Exercise 2: Filter your data --- #
+
+# load some data
 header_file = Path.cwd() / 'resources' / 'EEG_data' / 'P1_Ears Free_0.vhdr'
 raw = mne.io.read_raw_brainvision(header_file, preload=True)
 
 data = raw.pick_channels(['9'])._data[0][50000:51000]   # single channel eeg data
-n_samples = len(data)  # length of sequence
+n_samples = len(data)  # length of the data (time-sequence)
 time = numpy.arange(0, n_samples) / n_samples  # time points in the data
 
 # take a look at the EEG (time series) data:
@@ -18,7 +103,7 @@ ax.set_xlabel('Time (s)')
 ax.set_title('Raw signal')
 
 
-# ---- Step I: Fourier transformation ---- #
+# ---- Step I: Fourier transformation
 
 samplerate = 500        # sampling rate in Hz
 nyquist = samplerate / 2    # Nyquist frequency -- the highest frequency you can measure in the data
@@ -45,16 +130,15 @@ ax.set_ylabel('Power (dB)')
 ax.set_xlabel('Frequency (Hz)')
 
 # extra: plot a complex sine wave
-frequency = 3  # frequency of the sine wave in Hz
-fig = plt.figure()
-ax = plt.axes(projection='3d')
-sine_wave = numpy.exp(-1j * (2 * numpy.pi * frequency * time))  # complex sine wave
-ax.plot(time, sine_wave.real, sine_wave.imag)
-ax.set_title('%i Hz sine wave' % frequency)
+# frequency = 3  # frequency of the sine wave in Hz
+# fig = plt.figure()
+# ax = plt.axes(projection='3d')
+# sine_wave = numpy.exp(-1j * (2 * numpy.pi * frequency * time))  # complex sine wave
+# ax.plot(time, sine_wave.real, sine_wave.imag)
+# ax.set_title('%i Hz sine wave' % frequency)
 
 
-
-# ---- Step II Construct a band pass filter ----- #
+# ---- Step II Construct a band pass filter
 
 # get variables (these are the same variables as above)
 nyquist = samplerate / 2  # Nyquist frequency -- the highest frequency you can measure in the data
@@ -89,7 +173,7 @@ ax.set_xlabel('Frequency (Hz)')
 # compare the filtered spectrum to the original spectrum from above
 
 
-# ---- Step III: Inverse Fourier transformation ---- #
+# ---- Step III: Inverse Fourier transformation
 
 # after we applied the filter to the spectrum of the signal
 # we compute the inverse fourier transformation to recover the time series data

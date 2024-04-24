@@ -71,6 +71,7 @@ for freq in frequencies:
     sine_waves.append(x)
 sum = numpy.sum(sine_waves, axis=0)
 
+
 # plot spectrum here?
 
 # create a difference wave
