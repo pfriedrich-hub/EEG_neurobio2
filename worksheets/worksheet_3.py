@@ -31,7 +31,7 @@ def fourier_transform(data, samplerate, show=True, xlim=None, axis=None, return_
 samplerate = 500  # what is a samplerate?
 
 # duration of the signal (in seconds)
-duration = ... # todo
+duration = 3 # todo
 signal_length = duration * samplerate
 
 # create a time axis (array of time points)
@@ -40,9 +40,9 @@ time = numpy.linspace(start=0, stop=duration, num=signal_length)  # start, stop,
 # --- make a sine wave:
 
 # parameters of the sine wave:
-amplitude = ...  # todo
-frequency = ...  # todo
-phi = numpy.sin(...)  # phase angle (0°-360°)  # todo
+amplitude = 1  # todo
+frequency = 5  # todo
+phi = numpy.sin(0)  # phase angle (0°-360°)  # todo
 wave = amplitude * numpy.sin(2 * numpy.pi * frequency * time + phi)
 
 # plot:
@@ -55,7 +55,7 @@ fourier_transform(data=wave, samplerate=500, show=True)
 
 
 # --- add some sine waves together
-frequencies = [...]  # list of different frequencies # todo
+frequencies = [1, 3, 20]  # list of different frequencies # todo
 sine_waves = []
 for freq in frequencies:
     x = amplitude * numpy.sin(2 * numpy.pi * freq * time + phi)
