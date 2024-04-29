@@ -14,3 +14,4 @@
 
 # Plot results
 
+# Todo: include calculations for multiple subjects

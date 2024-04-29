@@ -52,8 +52,8 @@ print(raw_interpolated.info["bads"])
 
 raw_interpolated.plot()
 
-# Extra: choose one of the channels that you marked "bad". Using the elctrode map, pick the electrodes that are
-# the "bad" channels neighbours. Create a new channel (array) with the average of these electrodes
+# Extra: choose one of the channels that you marked "bad". Using the electrode map, pick the electrodes that are
+# the "bad" channel's neighbours. Create a new channel (array) with the average of these electrodes
 # What's the difference between this average and the interpolated version above?
 
 # Rerefence for
