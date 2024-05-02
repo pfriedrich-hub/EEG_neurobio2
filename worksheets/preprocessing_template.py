@@ -14,4 +14,6 @@
 
 # Plot results
 
+# Statistical analysis
+
 # Todo: include calculations for multiple subjects

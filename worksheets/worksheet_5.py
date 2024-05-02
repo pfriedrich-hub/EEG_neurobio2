@@ -12,13 +12,13 @@ header_file = Path.cwd() / 'resources' / 'EEG_data' / 'blinks.vhdr'
 raw = mne.io.read_raw_brainvision(header_file, preload=True)
 
 # Load channel mapping data if your previously saved data doesn't have it
-# with open(Path.cwd() / 'resources' / 'misc' / 'electrode_names.json') as file:
-#     mapping = json.load(file)
-# raw.rename_channels(mapping)
-# montage_file = Path.cwd() / "resources" / "misc" / "AS-96_REF.bvef"
-# montage = mne.channels.read_custom_montage(fname=montage_file)
-# raw.add_reference_channels('FCz')
-# raw.set_montage(montage)
+with open(Path.cwd() / 'resources' / 'misc' / 'electrode_names.json') as file:
+    mapping = json.load(file)
+raw.rename_channels(mapping)
+montage_file = Path.cwd() / "resources" / "misc" / "AS-96_REF.bvef"
+montage = mne.channels.read_custom_montage(fname=montage_file)
+raw.add_reference_channels('FCz')
+raw.set_montage(montage)
 
 # Set up the ICA function with default values
 n_components = 15
@@ -36,11 +36,11 @@ ica.plot_sources(raw)
 # Plot the topomaps of the components of the ICA results
 # By clicking on the unwanted component, you can select it to be excluded when applying the ICA to the data,
 # similar to how you marked "bad" channels on your raw object
-ica.plot_components(raw)
-plt.savefig("ICA_components.svg", dpi=800, format="svg")
+ica.plot_components()
+plt.savefig("ICA_components.png", dpi=800)
 
 # You can also select the unwanted ICA components manually by giving the component ID to the "exclude" list
-ica.exclude = []
+ica.exclude = [...]
 
 # Plot the raw data in overlay mode to highlight the differences between before and after ICA component removal
 ica.plot_overlay(raw, exclude=ica.exclude, picks="eeg")
