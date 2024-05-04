@@ -10,7 +10,7 @@ from matplotlib import colors
 # to make a morlet wavelet, create a gaussian and a sine wave and multiply them point by point
 # base parameters
 samplerate = 500   # sampling rate in Hz
-time = numpy.arange(-1, 1, 1 / samplerate)  # time, from -1 to 1 second in steps of 1/sampling-rate
+wavelet_time = numpy.arange(-1, 1, 1 / samplerate)  # time, from -1 to 1 second in steps of 1/sampling-rate
 
 # step 1: create a sine wave
 # frequency of the sine wave and of gaussian in Hz = center/peak frequency of resulting wavelet
@@ -19,7 +19,7 @@ frequency = 10
 sine_wave = numpy.exp(2 * numpy.pi * 1j * frequency * time)
 # plot the sine wave
 fig, ax = plt.subplots(3, 1)
-ax[0].plot(time, sine_wave)
+ax[0].plot(wavelet_time, sine_wave)
 ax[0].set_title('Sine wave (signal)')
 ax[0].set_ylim(-1.1, 1.1)
 
@@ -31,15 +31,15 @@ n_cycles = 6
 sigma = n_cycles / (2 * numpy.pi * frequency)
 # amplitude of gaussian
 amplitude = 1
-gaussian_window = amplitude * numpy.exp(-time ** 2 / (2 * sigma ** 2))
+gaussian_window = amplitude * numpy.exp(-wavelet_time ** 2 / (2 * sigma ** 2))
 # plot gaussian
-ax[1].plot(time, gaussian_window)
+ax[1].plot(wavelet_time, gaussian_window)
 ax[1].set_title('Gaussian window')
 
 # step 3: ...and together they make a wavelet!
 wavelet = ...
 # plot wavelet
-ax[2].plot(time, wavelet)
+ax[2].plot(wavelet_time, wavelet)
 ax[2].set_title('resulting wavelet')
 
 
@@ -47,7 +47,7 @@ ax[2].set_title('resulting wavelet')
 # plot, including the imaginary part:
 fig, ax = plt.subplots(1, 1)
 ax = plt.axes(projection='3d')
-ax.plot(time, wavelet.real, wavelet.imag)
+ax.plot(wavelet_time, wavelet.real, wavelet.imag)
 ax.set_title('%i Hz complex morlet wavelet' % frequency)
 ax.set_xlabel('Time (ms)')
 ax.set_ylabel('real amplitude')
@@ -63,6 +63,7 @@ raw = mne.io.read_raw_brainvision(header_file, preload=True)
 data = raw.pick_channels(['9'])._data[0][50000:51000]   # single channel eeg data
 n_samples = len(data)  # length of the data (time-sequence)
 eeg_time = numpy.arange(0, n_samples) / n_samples  # time points in the data
+samplerate = raw.info['sfreq']
 
 # take a look at the EEG (time series) data:
 fig, ax = plt.subplots(1, 1)
@@ -83,51 +84,63 @@ n_frequencies = 20  # number of wavelets (frequency resolution)
 wavelet_time = numpy.arange(-1, 1, 1 / samplerate)
 # frequencies at which we will create the different wavelets (= frequency resolution)
 frequencies = numpy.logspace(numpy.log10(min_freq), numpy.log10(max_freq), n_frequencies)
-# number of cycles of morlet wavelet (defined by sigma: width of the gaussian bell curve)
+# number of cycles of the morlet wavelets (defined by sigma: width of the gaussian bell curve)
 # note that we change the number as a function of wavelet frequency (more cycles with increasing wavelet frequency)
 sigmas = numpy.logspace(numpy.log10(3), numpy.log10(10), n_frequencies) / (2 * numpy.pi * frequencies)
 
 
-# convolution parameters
+# step 3: set some convolution parameters
 # length of the (zero-padded) wavelet in datapoints
 n_wavelet = len(wavelet_time)
 # length of the data in datapoints
 n_data = len(data)
-# length of the convolution result (twice as long due to the imaginary part)
+# length of the convolution result: due to how convolution works, we end up with more datapoints
+# visit https://www.youtube.com/watch?v=HSMwxBg7iq4&list=PLn0OLiymPak2G__qvavn3T8k7R8ssKxVr for a detailed explanation
 n_convolution = n_wavelet + n_data - 1
-# todo
-n_conv_pow2 = 2 ** (math.ceil(math.log(n_convolution, 2)))
+# length of the fourier transform output; twice the length of the data due to "negative frequencies"
+fft_length = 2 ** (math.ceil(math.log(n_convolution, 2)))
+# half the wavelet length - used later on (to trim the edges after convolution)
 half_of_wavelet_size = int((n_wavelet - 1) / 2)
 
-# get FFT of data
-eeg_fft = numpy.fft.fft(data, n_conv_pow2)
-# initialize
+# compute the fourier transform (spectral representation) of the EEG data ** needed later on for convolution
+eeg_fft = numpy.fft.fft(data, fft_length)
+
+# create numpy array to hold the results of the time-frequency analysis
 eeg_power = numpy.zeros((n_frequencies, n_data))  # frequencies X time
-base_idx = [0, 500]  # eeg data used for baseline normalization
+
 # loop through frequencies and compute synchronization
 for frequency_index in range(n_frequencies):
-    # create morlet wavelets at the different frequencies
-    wavelet = (numpy.sqrt(1 / (sigma[frequency_index] * numpy.sqrt(numpy.pi)))
-               # complex sine at different frequencies
-               * numpy.exp(2 * 1j * numpy.pi * frequencies[frequency_index] * time)
-               # gaussian with increasing sigma (=more cycles with increasing wavelet frequency)
-               * numpy.exp(-time ** 2 / (2 * (sigmas[frequency_index] ** 2))))
+    # step 4: create complex morlet wavelets for each frequency:
+    # frequency band specific scaling factor:
+    A = numpy.sqrt(1 / (sigmas[frequency_index] * numpy.sqrt(numpy.pi)))
+    # create complex sine wave at each frequency:
+    sine_wave = numpy.exp(2 * 1j * numpy.pi * frequencies[frequency_index] * wavelet_time)
+    # create gaussian window with increasing width (sigma)  -> more cycles with increasing wavelet frequency
+    gaussian_window = numpy.exp(-wavelet_time ** 2 / (2 * (sigmas[frequency_index] ** 2)))
+    # multiply to create complex morlet wavelet (cmw)
+    wavelet = A * sine_wave * gaussian_window
 
-    # apply fourier transformation (move to frequency representation)
-    # reminder: multiplication in the frequency domain == convolution in the time domain!
-    wavelet_fft = numpy.fft.fft(wavelet, n_conv_pow2)
+    # step 5: convolve the eeg signal with the wavelet to retrieve time-frequency information
+    # apply fourier transformation to the wavelet (convert the wavelet to frequency domain)
+    wavelet_fft = numpy.fft.fft(wavelet, fft_length)
+    # convolution - multiplication in the frequency domain == convolution in the time domain!
+    eeg_convolved = wavelet_fft * eeg_fft  # compute the wavelet coefficients
+    # -> visit https://www.youtube.com/watch?v=uSslgfKmno0 for more details
+    # apply inverse fourier transformation to return to the time representation of the now convolved signal
+    eeg_convolved = numpy.fft.ifft(eeg_convolved)
 
-    # convolve the eeg signal with the wavelet to retrieve time frequency information
-    eeg_conv = numpy.fft.ifft(wavelet_fft * eeg_fft)  # convolve and apply inverse fourier transformation
-    eeg_conv = eeg_conv[:n_convolution]  # cut result to length of n_convolution
-    eeg_conv = eeg_conv[half_of_wavelet_size + 1: n_convolution - half_of_wavelet_size]
+    # step 6: cut, convert to power and normalize
+    # cut result to convolution output length (n_convolution)
+    eeg_convolved = eeg_convolved[:n_convolution]
+    # trim the edges (cut away the zeros that result from convolution with zero-padded / tapered gaussian window)
+    eeg_convolved = eeg_convolved[half_of_wavelet_size + 1: n_convolution - half_of_wavelet_size]
+    # convert amplitude to power by squaring
+    time_frequency_power = (numpy.abs(eeg_convolved) ** 2)
+    # baseline normalization (in this example, we use the average power of the first 500 samples as a baseline value)
+    time_frequency_power_norm = 10 * numpy.log10(time_frequency_power / numpy.mean(time_frequency_power[0:500]))
 
-    # convert amplitude to power
-    temp_power = (numpy.abs(eeg_conv) ** 2)
-
-    # baseline normalization
-    eeg_power[frequency_index] = 10 * numpy.log10(temp_power / numpy.mean(temp_power[base_idx[0]:base_idx[1]]))
-
+    # final step: store normalized power in the time x frequency x power matrix
+    eeg_power[frequency_index] = time_frequency_power_norm
 
 # plot resulting time frequency representation of the EEG data
 x, y = numpy.meshgrid(eeg_time, frequencies)
@@ -145,17 +158,13 @@ plt.show()
 
 
 
-
-
-
-
+# extra: example of a single convolution (to show how it works)
 # create wavelet
 frequency = 6  # in Hz, as usual
 time = numpy.arange(-1, 1, 1/samplerate)  # time vector
 n_cycles = 4  # number of cycles of gaussian window - remember
 sigma = (n_cycles / (2 * numpy.pi * frequency))  
 wavelet = numpy.exp(2 * 1j * numpy.pi * frequency * time) * numpy.exp(-time ** 2 / (2 * sigma ** 2) / frequency)
-
 # Fourier parameters
 n_wavelet = len(wavelet)
 n_data = len(data)
@@ -164,13 +173,12 @@ half_of_wavelet_size = math.ceil((n_wavelet) / 2)
 # FFT of wavelet and EEG data
 fft_wavelet = numpy.fft.fft(wavelet, n_convolution)
 fft_data = numpy.fft.fft(data, n_convolution)
-
 # convolve and get inverse of fft
 convolution_result_fft = numpy.fft.ifft(fft_wavelet * fft_data, n_convolution) * numpy.sqrt(sigma) # scale by root of cycles
 # cut off edges
 convolution_result_fft = convolution_result_fft[half_of_wavelet_size:n_convolution-half_of_wavelet_size]
 # plot for comparison
-fig, ax = plt.subplots(3, 1)
+fig, ax = plt.subplots(3, 1, figsize=(12,8), tight_layout=False)
 ax[0].plot(time, convolution_result_fft.real)
 ax[0].set_title('Projection onto real axis is filtered signal at %i Hz.'%frequency)
 ax[0].set_xlabel('Time (ms)')
