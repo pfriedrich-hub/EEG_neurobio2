@@ -94,7 +94,8 @@ sigmas = numpy.logspace(numpy.log10(3), numpy.log10(10), n_frequencies) / (2 * n
 n_wavelet = len(wavelet_time)
 # length of the data in datapoints
 n_data = len(data)
-# length of the convolution result: due to how convolution works, we end up with more datapoints
+# length of the convolution result:
+# because of  how convolution works, we end up with more datapoints than in the original signal
 # visit https://www.youtube.com/watch?v=HSMwxBg7iq4&list=PLn0OLiymPak2G__qvavn3T8k7R8ssKxVr for a detailed explanation
 n_convolution = n_wavelet + n_data - 1
 # length of the fourier transform output; twice the length of the data due to "negative frequencies"
