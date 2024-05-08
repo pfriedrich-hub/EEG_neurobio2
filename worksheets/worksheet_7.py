@@ -16,7 +16,7 @@ wavelet_time = numpy.arange(-1, 1, 1 / samplerate)  # time, from -1 to 1 second 
 # frequency of the sine wave and of gaussian in Hz = center/peak frequency of resulting wavelet
 frequency = 10
 # complex sine wave
-sine_wave = numpy.exp(2 * numpy.pi * 1j * frequency * time)
+sine_wave = numpy.exp(2 * numpy.pi * 1j * frequency * wavelet_time)
 # plot the sine wave
 fig, ax = plt.subplots(3, 1)
 ax[0].plot(wavelet_time, sine_wave)
