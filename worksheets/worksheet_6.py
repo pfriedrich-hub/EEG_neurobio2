@@ -62,7 +62,7 @@ epochs.save("...-epo.fif", overwrite=True)
 # Try to use it!
 
 # Evoked objects are the averages of all epochs relating to the same experimental condition (event_id)
-conditions = list(event_dict.values())
+conditions = list(event_dict.keys())
 evokeds = [epochs[condition].average() for condition in conditions]
 
 # Plot the evoked of each of the conditions
