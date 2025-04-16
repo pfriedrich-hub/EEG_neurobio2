@@ -32,7 +32,8 @@ samplerate = 500  # what is a samplerate?
 
 # duration of the signal (in seconds)
 duration = ... # todo
-signal_length = duration * samplerate
+# todo: calculate the length of the signal from duration and samplerate
+signal_length = ...
 
 # create a time axis (array of time points)
 time = numpy.linspace(start=0, stop=duration, num=signal_length)  # start, stop, number of steps
@@ -103,7 +104,7 @@ ax.set_xlabel('Time (s)')
 ax.set_title('Raw signal')
 
 
-# ---- Step I: Fourier transformation
+# ---- Step I: Fourier transformation (step by step)
 
 samplerate = 500        # sampling rate in Hz
 nyquist = samplerate / 2    # Nyquist frequency -- the highest frequency you can measure in the data

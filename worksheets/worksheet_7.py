@@ -12,16 +12,18 @@ from matplotlib import colors
 samplerate = 500   # sampling rate in Hz
 wavelet_time = numpy.arange(-1, 1, 1 / samplerate)  # time, from -1 to 1 second in steps of 1/sampling-rate
 
+
 # step 1: create a sine wave
 # frequency of the sine wave and of gaussian in Hz = center/peak frequency of resulting wavelet
 frequency = 10
 # complex sine wave
-sine_wave = numpy.exp(2 * numpy.pi * 1j * frequency * time)
+sine_wave = numpy.exp(2 * numpy.pi * 1j * frequency * wavelet_time)
 # plot the sine wave
 fig, ax = plt.subplots(3, 1)
 ax[0].plot(wavelet_time, sine_wave)
 ax[0].set_title('Sine wave (signal)')
 ax[0].set_ylim(-1.1, 1.1)
+
 
 # step 2: make a Gaussian
 # number of cycles - trade-off between temporal and frequency resolution:
@@ -36,8 +38,9 @@ gaussian_window = amplitude * numpy.exp(-wavelet_time ** 2 / (2 * sigma ** 2))
 ax[1].plot(wavelet_time, gaussian_window)
 ax[1].set_title('Gaussian window')
 
+
 # step 3: ...and together they make a wavelet!
-wavelet = ...
+wavelet = gaussian_window * sine_wave
 # plot wavelet
 ax[2].plot(wavelet_time, wavelet)
 ax[2].set_title('resulting wavelet')
@@ -60,7 +63,7 @@ ax.set_zlabel('imag amplitude')
 # load sample data  # todo this could be epochs around an auditory stimulus
 header_file = Path.cwd() / 'resources' / 'EEG_data' / 'P1_Ears Free_0.vhdr'
 raw = mne.io.read_raw_brainvision(header_file, preload=True)
-data = raw.pick_channels(['9'])._data[0][50000:51000]   # single channel eeg data
+data = raw.pick_channels(['9'])._data[0][52000:53000]   # single channel eeg data
 n_samples = len(data)  # length of the data (time-sequence)
 eeg_time = numpy.arange(0, n_samples) / n_samples  # time points in the data
 samplerate = raw.info['sfreq']
@@ -75,8 +78,8 @@ ax.set_title('Raw signal')
 
 # step 1: define frequency range of the time-frequency-analysis (= wavelet frequencies)
 min_freq = 3  # minimum frequency
-max_freq = 60  # maximum frequency
-n_frequencies = 20  # number of wavelets (frequency resolution)
+max_freq = 80  # maximum frequency
+n_frequencies = 30  # number of wavelets (frequency resolution)
 
 
 # step 2: define wavelet parameters
