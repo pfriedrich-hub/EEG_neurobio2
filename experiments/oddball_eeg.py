@@ -1,18 +1,139 @@
-import pandas as pd
 import slab
 import numpy
 import random
 import time
 import freefield
 from pathlib import Path
+fs = 48828
+slab.set_default_samplerate(fs)
 data_dir = Path.cwd() / 'experiments'
 rcx_file = 'oddball.rcx'
 
-# generate standard and deviant stimuli
-standard = slab.Binaural.tone(frequency=500, level=60)
-deviant_1 = slab.Binaural.tone(frequency=500, level=80)
-deviant_2 = slab.Binaural.tone(frequency=800, level=60)
-deviant_3 = slab.Binaural.tone(frequency=500, level=60).at_azimuth(45)
+# generate standard
+f0 = 500
+n_harmonics = 3
+duration = 0.075
+level = 75
+
+standard = slab.Sound.tone(f0, duration, level=level)
+standard += slab.Sound.tone(f0*2, duration, level=level-3)
+standard += slab.Sound.tone(f0*3, duration, level=level-6)
+standard.ramp(duration=.005)
+
+# generate deviant 1 - frequency deviant
+dev_f0 = 550
+deviant_1 = slab.Sound.tone(dev_f0, duration, level=level)
+deviant_1 += slab.Sound.tone(dev_f0*2, duration, level=level-3)
+deviant_1 += slab.Sound.tone(dev_f0*3, duration, level=level-6)
+deviant_1.ramp(duration=.005)
+
+# generate deviant 2 - loudness deviant
+dev_level = 85
+deviant_2 = slab.Sound.tone(f0, duration, level=dev_level)
+deviant_2 += slab.Sound.tone(f0*2, duration, level=dev_level-3)
+deviant_2 += slab.Sound.tone(f0*3, duration, level=dev_level-6)
+deviant_2.ramp(duration=.005)
+
+# generate deviant 3 - duration deviant
+dev_duration = 0.025
+deviant_3 = slab.Sound.tone(f0, dev_duration, level=level)
+deviant_3 += slab.Sound.tone(f0*2, dev_duration, level=level-3)
+deviant_3 += slab.Sound.tone(f0*3, dev_duration, level=level-6)
+deviant_3.ramp(duration=.005)
+silence = slab.Sound.silence(duration=.05)
+deviant_3 = slab.Sound.sequence(deviant_3, silence)
+
+#  deviant 4 - location deviant
+# handle in rcx
+
+# (SOA) of 500 ms in three 5 min sequences
+def run_experiment(
+        n_trials=1845,
+        soa = 0.5,
+        save_csv_path=Path.cwd() / 'data' / 'mmn_trials.csv'):
+
+    # stimulus codes (0 - 4) appear in the trial sequence and eeg triggers
+    # 0: standard, 1 - 4: deviants
+
+    # generate trial sequence
+    sequence = generate_mmn_sequence(n_trials)
+    print(sequence)
+    trial_sequence = slab.Trialsequence(conditions=sequence)
+    trial_sequence.trials = numpy.arange(n_trials).tolist()
+    trial_sequence.save_csv(save_csv_path)    # Save to CSV
+
+    # write stimulus data to buffers
+    freefield.write('data_std', standard.data, ['RX81', 'RX82'])
+    freefield.write('data_dev_1', deviant_1.data, ['RX81', 'RX82'])
+    freefield.write('data_dev_2', deviant_2.data, ['RX81', 'RX82'])
+    freefield.write('data_dev_3', deviant_3.data, ['RX81', 'RX82'])
+    freefield.write('data_dev_4', standard.data, ['RX81', 'RX82'])
+    freefield.write('n_samples', standard.n_samples, ['RX81', 'RX82'])
+    [speaker] = freefield.pick_speakers(23)
+    freefield.set_speaker(speaker)
+
+    # Run trials
+    print("\nStarting MMN experiment...\n")
+    for stim_code in (trial_sequence):
+        print(f"Trial {trial_sequence.this_n}, stim code: {trial_sequence.this_trial}")
+        freefield.write('stim_code', stim_code, ['RX81', 'RX82'])
+        if stim_code == 4:
+            freefield.set_speaker(44)  # play at 52.5° azimuth
+
+        freefield.play('zBusA')
+        time.sleep(soa - standard.duration)
+    print("\nExperiment complete.")
+
+def init_dsp(rcx_file):
+    proc_list = [['RX81', 'RX8', data_dir / 'rcx' / rcx_file],
+                 ['RX82', 'RX8', data_dir / 'rcx' / rcx_file]]
+    freefield.initialize('dome', device=proc_list, sensor_tracking=False)
+    # freefield.load_equalization(data_dir / '')
+
+def generate_deviant_groups(total_deviants, last_deviant=None):
+    deviant_types = [1, 2, 3, 4]
+    groups = []
+    while len(groups) * 5 < total_deviants:
+        group = deviant_types.copy()
+        # Choose a 5th deviant that's not same as previous group's last deviant
+        extra_choices = [d for d in deviant_types if d != last_deviant]
+        group.append(random.choice(extra_choices))
+        # Shuffle group until no adjacent duplicates with previous group's end
+        for _ in range(1000):
+            random.shuffle(group)
+            if last_deviant is None or group[0] != last_deviant:
+                if all(group[i] != group[i+1] for i in range(len(group)-1)):
+                    break
+        else:
+            raise RuntimeError("Failed to build a valid deviant group.")
+        groups.append(group)
+        last_deviant = group[-1]
+    # Flatten list of groups
+    return [d for group in groups for d in group]
+
+def generate_mmn_sequence(n_trials, leading_standards=15):
+    if n_trials <= leading_standards or (n_trials - leading_standards) % 2 != 0:
+        raise ValueError("Total length must allow alternation after leading standards.")
+    sequence = [0] * leading_standards
+    num_deviants = (n_trials - leading_standards) // 2
+    deviant_list = generate_deviant_groups(num_deviants)
+    # Interleave with standards
+    for deviant in deviant_list:
+        sequence.append(deviant)  # odd index
+        sequence.append(0)        # even index
+    return sequence[:n_trials]
+
+
+# # Example usage
+# if __name__ == "__main__":
+#     init_dsp(rcx_file)
+#     run_experiment(
+#         deviant_freq=0.8,
+#         n_trials=300,
+#         isi=0.5,
+#         save_csv_path="mmn_trials.csv")
+
+
 
 # some ideas:
 # timbre: create a sound that has the same f0 and amplitude/mean power across frequencies, but different:
@@ -30,84 +151,3 @@ deviant_3 = slab.Binaural.tone(frequency=500, level=60).at_azimuth(45)
 # behavioral difference? behavioral ratings? unknown HRTF should differ (use jnd timbre differences)
 # ask participants to localize first and then rate timbre or reverse or simultaneously
 # test spatial instruments for timbre changes
-
-def run_experiment(
-        deviant_freq=0.2,
-        n_trials=300,
-        isi=0.5,
-        save_csv_path="mmn_trials.csv"):
-    """
-    :param deviant_freq: frequency of deviant stimuli
-    :param n_trials: number of trials
-    :param isi: inter stimulus interval
-    :param save_csv_path: path to save trial sequence
-    """
-    # stimulus codes (0-3) appear in the trial sequence and eeg triggers
-    # 0: standard, 1-3: deviants
-
-    # generate Trialsequence # we need ca. 500 trials to get each of the 3 deviants 30 times
-    trial_sequence = slab.Trialsequence(conditions = 1, n_reps = n_trials, deviant_freq = deviant_freq)
-    trial_sequence.trials = replace_zeros_with_deviants(trial_sequence.trials, deviant_codes=[1,2,3])
-    # Save to CSV
-    trial_sequence.save(save_csv_path)
-    print(f"Trial sequence saved to {save_csv_path}")
-
-    # write stimulus data to buffer
-    freefield.write('data_std', standard.data, ['RX81', 'RX82'])
-    freefield.write('data_dev_1', deviant_1.data, ['RX81', 'RX82'])
-    freefield.write('data_dev_2', deviant_2.data, ['RX81', 'RX82'])
-    freefield.write('data_dev_3', deviant_3.data, ['RX81', 'RX82'])
-    # for now all stimuli have the same duration
-    freefield.write('n_samples', standard.n_samples, ['RX81', 'RX82'])
-    # set channel, for now we use fixed locations
-    [speaker] = freefield.pick_speakers(23)
-    freefield.set_speaker(speaker)
-
-    # Run trials
-    print("\nStarting MMN experiment...\n")
-    for stim_code in (trial_sequence):
-        print(f"Trial {trial_sequence.this_n}, stim code: {trial_sequence.this_trial}")
-        freefield.write('stim_code', stim_code, ['RX81', 'RX82'])
-        freefield.play('zBusA')
-        time.sleep(isi)
-    print("\nExperiment complete.")
-
-def replace_zeros_with_deviants(sequence, deviant_codes):
-    # Find how many zeros (deviants) there are
-    n_deviants = sequence.count(0)
-    n_deviant_types = len(deviant_codes)
-    n_per_type = n_deviants // n_deviant_types
-    # Create evenly distributed list of deviant codes
-    deviants = []
-    for code in deviant_codes:
-        deviants.extend([code] * n_per_type)
-    # If there's a remainder, randomly assign extra deviants
-    remainder = n_deviants - len(deviants)
-    deviants.extend(random.choices(deviant_codes, k=remainder))
-    # Shuffle the deviant codes
-    random.shuffle(deviants)
-    # Replace zeros in the sequence
-    new_sequence = []
-    deviant_index = 0
-    for item in sequence:
-        if item == 0:
-            new_sequence.append(deviants[deviant_index])
-            deviant_index += 1
-        else:
-            new_sequence.append(item)
-    return new_sequence
-
-def init_dsp(rcx_file):
-    proc_list = [['RX81', 'RX8', data_dir / 'rcx' / rcx_file],
-                 ['RX82', 'RX8', data_dir / 'rcx' / rcx_file]]
-    freefield.initialize('dome', device=proc_list, sensor_tracking=True)
-    freefield.load_equalization(data_dir / '')
-
-# Example usage
-if __name__ == "__main__":
-    init_dsp(rcx_file)
-    run_experiment(
-        deviant_freq=0.2,
-        n_trials=300,
-        isi=0.5,
-        save_csv_path="mmn_trials.csv")
