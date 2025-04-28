@@ -88,7 +88,7 @@ def run_experiment(n_trials=1845, soa = 0.5):
             freefield.wait_to_finish_playing()
 
         time.sleep(soa-standard.duration)
-        if trial_sequence.this_n == 615:
+        if trial_sequence.this_n == 615 or trial_sequence.this_n == 1230:
             input('Press enter to continue...')
 
     print("\nExperiment complete.")
